@@ -5,13 +5,25 @@ const fs = require("fs");
 const exec = require("./exec");
 
 const TODOIST_API_KEY = core.getInput("TODOIST_API_KEY");
+const TODOIST_LENGTH = Number.parseInt(core.getInput("TODOIST_LENGTH")) || 2;
+
 const PREMIUM = core.getInput("PREMIUM");
 
 async function main() {
-  const stats = await axios(
-    `https://api.todoist.com/sync/v8.3/completed/get_stats?token=${TODOIST_API_KEY}`
+  const data = await axios.post(`https://api.todoist.com/sync/v8/sync`,
+    {
+      'resource_types': ["items", "projects", "sections"],
+      'sync_token': '*'
+    },
+    {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${TODOIST_API_KEY}`
+      }
+    }
   );
-  await updateReadme(stats.data);
+
+  await updateReadme(data.data);
 }
 
 let todoist = [];
@@ -19,32 +31,17 @@ let jobFailFlag = false;
 const README_FILE_PATH = "./README.md";
 
 async function updateReadme(data) {
-  const { karma, completed_count, days_items, goals, week_items } = data;
+  const { items, projects, sections } = data;
 
-  const karmaPoint = [`🏆  **${Humanize.intComma(karma)}** Karma Points`];
-  todoist.push(karmaPoint);
+  todoist.push('| Task        | Project           | Section  |');
+  todoist.push('| ------------- |:-------------:| -----:|');
 
-  const dailyGoal = [
-    `🌸  Completed **${days_items[0].total_completed.toString()}** tasks today`,
-  ];
-  todoist.push(dailyGoal);
-
-  if (PREMIUM == "true") {
-    const weekItems = [
-      `🗓  Completed **${week_items[0].total_completed.toString()}** tasks this week`,
-    ];
-    todoist.push(weekItems);
-  }
-
-  const totalTasks = [
-    `✅  Completed **${Humanize.intComma(completed_count)}** tasks so far`,
-  ];
-  todoist.push(totalTasks);
-
-  const longestStreak = [
-    `⏳  Longest streak is **${goals.max_daily_streak.count}** days`,
-  ];
-  todoist.push(longestStreak);
+  items.slice(0, TODOIST_LENGTH).forEach(itemEach => {
+    let project = projects.find(projectEach => projectEach.id === itemEach.project_id);
+    let section = sections.find(sectionEach => sectionEach.id === itemEach.section_id);
+    let sectionName = section && section.name || 'Pending';
+    todoist.push(`| ${itemEach.content}        | ${project.name}           | ${sectionName}  |`);
+  });
 
   if (todoist.length == 0) return;
 
@@ -109,8 +106,8 @@ const buildReadme = (prevReadmeContent, newReadmeContent) => {
 
 const commitReadme = async () => {
   // Getting config
-  const committerUsername = "Abhishek Naidu";
-  const committerEmail = "example@gmail.com";
+  const committerUsername = "Ramakant Gangwar";
+  const committerEmail = "gangwar.ramakant@gmail.com";
   const commitMessage = "Todoist updated.";
   // Doing commit and push
   await exec("git", ["config", "--global", "user.email", committerEmail]);
