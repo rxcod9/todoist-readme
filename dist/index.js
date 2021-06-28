@@ -492,7 +492,7 @@ async function updateReadme(data) {
   items.slice(0, TODOIST_LENGTH).forEach(itemEach => {
     let project = projects.find(projectEach => projectEach.id === itemEach.project_id);
     let section = sections.find(sectionEach => sectionEach.id === itemEach.section_id);
-    let sectionName = section.name || '';
+    let sectionName = section && section.name || 'Pending';
     todoist.push(`| ${itemEach.content}        | ${project.name}           | ${sectionName}  |`);
   });
 
