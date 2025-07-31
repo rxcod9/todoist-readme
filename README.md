@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="400" src="assets/todoist-stat.png">
+  <!-- <img width="400" src="assets/todoist-stat.png"> -->
   <h3 align="center">🚧 Todoist Tasks</h3>
   <p align="center">⚡️📌 Update your Todoist Tasks ✅ </p>
 </p>

@@ -458,137 +458,125 @@ const fs = __webpack_require__(747);
 const exec = __webpack_require__(898);
 
 const TODOIST_API_KEY = core.getInput("TODOIST_API_KEY");
+const TODOIST_LENGTH = Number.parseInt(core.getInput("TODOIST_LENGTH")) || 10;
 const PREMIUM = core.getInput("PREMIUM");
 
 async function main() {
-    const stats = await axios(
-      "https://api.todoist.com/sync/v9/completed/get_stats",
+  // v8 => v9
+  const tasks = await axios.post(
+    "https://api.todoist.com/sync/v9/sync",
+    {
+      "resource_types": [
+        "items",
+        "projects",
+        "sections"
+      ],
+      "sync_token": "*"
+    },
     { headers: { Authorization: `Bearer ${TODOIST_API_KEY}` } }
-    );
-    await updateReadme(stats.data);
+  );
+  await updateReadme(tasks.data);
 }
 
 let todoist = [];
 let jobFailFlag = false;
-const README_FILE_PATH = './README.md';
+const README_FILE_PATH = "./README.md";
 
 async function updateReadme(data) {
+  const { items, projects, sections } = data;
 
-    
-    const { karma, completed_count, days_items, goals, week_items } = data;
-  
-    const karmaPoint = [`🏆  ${Humanize.intComma(karma)} Karma Points`];
-    todoist.push(karmaPoint);
-  
-    const dailyGoal = [
-      `🌸  Completed ${days_items[0].total_completed.toString()} tasks today`,
-    ];
-    todoist.push(dailyGoal);
+  todoist.push('| Task        | Project           | Section  |');
+  todoist.push('| ------------- |:-------------:| -----:|');
 
-    if(PREMIUM) {
-      const weekItems = [`🗓  Completed ${week_items[0].total_completed.toString()} tasks this week`];
-      todoist.push(weekItems);
+  items.slice(0, TODOIST_LENGTH).forEach(itemEach => {
+    let project = projects.find(projectEach => projectEach.id === itemEach.project_id);
+    let section = sections.find(sectionEach => sectionEach.id === itemEach.section_id);
+    let sectionName = section && section.name || 'Pending';
+    todoist.push(`| ${itemEach.content}        | ${project.name}           | ${sectionName}  |`);
+  });
+
+  if (todoist.length == 0) return;
+
+  if (todoist.length > 0) {
+    // console.log(todoist.length);
+    // const showTasks = todoist.reduce((todo, cur, index) => {
+    //   return todo + `\n${cur}        ` + (((index + 1) === todoist.length) ? '\n' : '');
+    // })
+    const readmeData = fs.readFileSync(README_FILE_PATH, "utf8");
+
+    const newReadme = buildReadme(readmeData, todoist.join("           \n"));
+    if (newReadme !== readmeData) {
+      core.info("Writing to " + README_FILE_PATH);
+      fs.writeFileSync(README_FILE_PATH, newReadme);
+      if (!process.env.TEST_MODE) {
+        commitReadme();
+      }
+    } else {
+      core.info("No change detected, skipping");
+      process.exit(0);
     }
-  
-    const totalTasks = [`✅  Completed ${Humanize.intComma(completed_count)} tasks so far`];
-    todoist.push(totalTasks);
-
-    const longestStreak = [
-      `⏳  Longest streak is ${goals.max_daily_streak.count} days`,
-    ];
-    todoist.push(longestStreak);
-  
-    if (todoist.length == 0) return;
-
-    if (todoist.length > 0) {
-      console.log(todoist.length);
-      // const showTasks = todoist.reduce((todo, cur, index) => {
-      //   return todo + `\n${cur}        ` + (((index + 1) === todoist.length) ? '\n' : '');
-      // })
-        const readmeData = fs.readFileSync(README_FILE_PATH, "utf8");
-  
-  
-        const newReadme = buildReadme(readmeData, todoist.join("           \n"));
-        if (newReadme !== readmeData) {
-          core.info('Writing to ' + README_FILE_PATH);
-          fs.writeFileSync(README_FILE_PATH, newReadme);
-          if (!process.env.TEST_MODE) {
-            commitReadme();
-          }
-        } else {
-          core.info('No change detected, skipping');
-          process.exit(0);
-        }
-      } 
-     else {
-      core.info("Nothing fetched");
-      process.exit(jobFailFlag ? 1 : 0);
-    }
-  }
-
-  // console.log(todoist.length);
-
-
-
-  
-  const buildReadme = (prevReadmeContent, newReadmeContent) => {
-    const tagToLookFor = '<!-- TODO-IST:';
-    const closingTag = '-->';
-    const startOfOpeningTagIndex = prevReadmeContent.indexOf(
-      `${tagToLookFor}START`,
-    );
-    const endOfOpeningTagIndex = prevReadmeContent.indexOf(
-      closingTag,
-      startOfOpeningTagIndex,
-    );
-    const startOfClosingTagIndex = prevReadmeContent.indexOf(
-      `${tagToLookFor}END`,
-      endOfOpeningTagIndex,
-    );
-    if (
-      startOfOpeningTagIndex === -1 ||
-      endOfOpeningTagIndex === -1 ||
-      startOfClosingTagIndex === -1
-    ) {
-      core.error(
-        `Cannot find the comment tag on the readme:\n<!-- ${tagToLookFor}:START -->\n<!-- ${tagToLookFor}:END -->`
-      );
-      process.exit(1);
-    }
-    return [
-      prevReadmeContent.slice(0, endOfOpeningTagIndex + closingTag.length),
-      '\n',
-      newReadmeContent,
-      '\n',
-      prevReadmeContent.slice(startOfClosingTagIndex),
-    ].join('');
-  };
-
-  const commitReadme = async () => {
-    // Getting config
-    const committerUsername = 'Abhishek Naidu';
-    const committerEmail = 'example@gmail.com';
-    const commitMessage = 'Todoist updated.';
-    // Doing commit and push
-    await exec('git', [
-      'config',
-      '--global',
-      'user.email',
-      committerEmail,
-    ]);
-    await exec('git', ['config', '--global', 'user.name', committerUsername]);
-    await exec('git', ['add', README_FILE_PATH]);
-    await exec('git', ['commit', '-m', commitMessage]);
-    // await exec('git', ['fetch']);
-    await exec('git', ['push']);
-    core.info("Readme updated successfully.");
-    // Making job fail if one of the source fails
+  } else {
+    core.info("Nothing fetched");
     process.exit(jobFailFlag ? 1 : 0);
-  };
+  }
+}
 
-  (async () => {
-    await main();
-  })();
+// console.log(todoist.length);
+
+const buildReadme = (prevReadmeContent, newReadmeContent) => {
+  const tagToLookFor = "<!-- TODO-IST:";
+  const closingTag = "-->";
+  const startOfOpeningTagIndex = prevReadmeContent.indexOf(
+    `${tagToLookFor}START`
+  );
+  const endOfOpeningTagIndex = prevReadmeContent.indexOf(
+    closingTag,
+    startOfOpeningTagIndex
+  );
+  const startOfClosingTagIndex = prevReadmeContent.indexOf(
+    `${tagToLookFor}END`,
+    endOfOpeningTagIndex
+  );
+  if (
+    startOfOpeningTagIndex === -1 ||
+    endOfOpeningTagIndex === -1 ||
+    startOfClosingTagIndex === -1
+  ) {
+    core.error(
+      `Cannot find the comment tag on the readme:\n<!-- ${tagToLookFor}:START -->\n<!-- ${tagToLookFor}:END -->`
+    );
+    process.exit(1);
+  }
+  return [
+    prevReadmeContent.slice(0, endOfOpeningTagIndex + closingTag.length),
+    "\n",
+    newReadmeContent,
+    "\n",
+    prevReadmeContent.slice(startOfClosingTagIndex),
+  ].join("");
+};
+
+const commitReadme = async () => {
+  // Getting config
+  const committerUsername = "Ramakant Gangwar";
+  const committerEmail = "gangwar.ramakant@gmail.com";
+  const commitMessage = "Todoist updated.";
+  // Doing commit and push
+  await exec("git", ["config", "--global", "user.email", committerEmail]);
+  await exec("git", ["config", "--global", "user.name", committerUsername]);
+  await exec("git", ["add", README_FILE_PATH]);
+  await exec("git", ["commit", "-m", commitMessage]);
+  // await exec('git', ['fetch']);
+  await exec("git", ["push"]);
+  core.info("Readme updated successfully.");
+  // Making job fail if one of the source fails
+  process.exit(jobFailFlag ? 1 : 0);
+};
+
+(async () => {
+  await main();
+})();
+
 
 /***/ }),
 
@@ -1074,7 +1062,7 @@ module.exports = require("assert");
 /***/ 361:
 /***/ (function(module) {
 
-module.exports = {"_from":"axios","_id":"axios@0.20.0","_inBundle":false,"_integrity":"sha512-ANA4rr2BDcmmAQLOKft2fufrtuvlqR+cXNNinUmvfeSNCOF98PZL+7M/v1zIdGo7OLjEA9J2gXJL+j4zGsl0bA==","_location":"/axios","_phantomChildren":{},"_requested":{"type":"tag","registry":true,"raw":"axios","name":"axios","escapedName":"axios","rawSpec":"","saveSpec":null,"fetchSpec":"latest"},"_requiredBy":["#USER","/"],"_resolved":"https://registry.npmjs.org/axios/-/axios-0.20.0.tgz","_shasum":"057ba30f04884694993a8cd07fa394cff11c50bd","_spec":"axios","_where":"/Users/abhisheknaidu/Desktop/workspace🌈/projects/todoist-readme","author":{"name":"Matt Zabriskie"},"browser":{"./lib/adapters/http.js":"./lib/adapters/xhr.js"},"bugs":{"url":"https://github.com/axios/axios/issues"},"bundleDependencies":false,"bundlesize":[{"path":"./dist/axios.min.js","threshold":"5kB"}],"dependencies":{"follow-redirects":"^1.10.0"},"deprecated":false,"description":"Promise based HTTP client for the browser and node.js","devDependencies":{"bundlesize":"^0.17.0","coveralls":"^3.0.0","es6-promise":"^4.2.4","grunt":"^1.0.2","grunt-banner":"^0.6.0","grunt-cli":"^1.2.0","grunt-contrib-clean":"^1.1.0","grunt-contrib-watch":"^1.0.0","grunt-eslint":"^20.1.0","grunt-karma":"^2.0.0","grunt-mocha-test":"^0.13.3","grunt-ts":"^6.0.0-beta.19","grunt-webpack":"^1.0.18","istanbul-instrumenter-loader":"^1.0.0","jasmine-core":"^2.4.1","karma":"^1.3.0","karma-chrome-launcher":"^2.2.0","karma-coverage":"^1.1.1","karma-firefox-launcher":"^1.1.0","karma-jasmine":"^1.1.1","karma-jasmine-ajax":"^0.1.13","karma-opera-launcher":"^1.0.0","karma-safari-launcher":"^1.0.0","karma-sauce-launcher":"^1.2.0","karma-sinon":"^1.0.5","karma-sourcemap-loader":"^0.3.7","karma-webpack":"^1.7.0","load-grunt-tasks":"^3.5.2","minimist":"^1.2.0","mocha":"^5.2.0","sinon":"^4.5.0","typescript":"^2.8.1","url-search-params":"^0.10.0","webpack":"^1.13.1","webpack-dev-server":"^1.14.1"},"homepage":"https://github.com/axios/axios","jsdelivr":"dist/axios.min.js","keywords":["xhr","http","ajax","promise","node"],"license":"MIT","main":"index.js","name":"axios","repository":{"type":"git","url":"git+https://github.com/axios/axios.git"},"scripts":{"build":"NODE_ENV=production grunt build","coveralls":"cat coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js","examples":"node ./examples/server.js","fix":"eslint --fix lib/**/*.js","postversion":"git push && git push --tags","preversion":"npm test","start":"node ./sandbox/server.js","test":"grunt test && bundlesize","version":"npm run build && grunt version && git add -A dist && git add CHANGELOG.md bower.json package.json"},"typings":"./index.d.ts","unpkg":"dist/axios.min.js","version":"0.20.0"};
+module.exports = {"name":"axios","version":"0.20.0","description":"Promise based HTTP client for the browser and node.js","main":"index.js","scripts":{"test":"grunt test && bundlesize","start":"node ./sandbox/server.js","build":"NODE_ENV=production grunt build","preversion":"npm test","version":"npm run build && grunt version && git add -A dist && git add CHANGELOG.md bower.json package.json","postversion":"git push && git push --tags","examples":"node ./examples/server.js","coveralls":"cat coverage/lcov.info | ./node_modules/coveralls/bin/coveralls.js","fix":"eslint --fix lib/**/*.js"},"repository":{"type":"git","url":"https://github.com/axios/axios.git"},"keywords":["xhr","http","ajax","promise","node"],"author":"Matt Zabriskie","license":"MIT","bugs":{"url":"https://github.com/axios/axios/issues"},"homepage":"https://github.com/axios/axios","devDependencies":{"bundlesize":"^0.17.0","coveralls":"^3.0.0","es6-promise":"^4.2.4","grunt":"^1.0.2","grunt-banner":"^0.6.0","grunt-cli":"^1.2.0","grunt-contrib-clean":"^1.1.0","grunt-contrib-watch":"^1.0.0","grunt-eslint":"^20.1.0","grunt-karma":"^2.0.0","grunt-mocha-test":"^0.13.3","grunt-ts":"^6.0.0-beta.19","grunt-webpack":"^1.0.18","istanbul-instrumenter-loader":"^1.0.0","jasmine-core":"^2.4.1","karma":"^1.3.0","karma-chrome-launcher":"^2.2.0","karma-coverage":"^1.1.1","karma-firefox-launcher":"^1.1.0","karma-jasmine":"^1.1.1","karma-jasmine-ajax":"^0.1.13","karma-opera-launcher":"^1.0.0","karma-safari-launcher":"^1.0.0","karma-sauce-launcher":"^1.2.0","karma-sinon":"^1.0.5","karma-sourcemap-loader":"^0.3.7","karma-webpack":"^1.7.0","load-grunt-tasks":"^3.5.2","minimist":"^1.2.0","mocha":"^5.2.0","sinon":"^4.5.0","typescript":"^2.8.1","url-search-params":"^0.10.0","webpack":"^1.13.1","webpack-dev-server":"^1.14.1"},"browser":{"./lib/adapters/http.js":"./lib/adapters/xhr.js"},"jsdelivr":"dist/axios.min.js","unpkg":"dist/axios.min.js","typings":"./index.d.ts","dependencies":{"follow-redirects":"^1.10.0"},"bundlesize":[{"path":"./dist/axios.min.js","threshold":"5kB"}]};
 
 /***/ }),
 
