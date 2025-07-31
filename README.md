@@ -1,7 +1,7 @@
 <p align="center">
   <img width="400" src="assets/todoist-stat.png">
-  <h3 align="center">🚧 Todoist Stats</h3>
-  <p align="center">⚡️📌 Update your Todoist Stats ✅ </p>
+  <h3 align="center">🚧 Todoist Tasks</h3>
+  <p align="center">⚡️📌 Update your Todoist Tasks ✅ </p>
 </p>
 
 ---
@@ -14,6 +14,7 @@
    - if you're new to Todoist, then you can refer [here](#new-to-todoist).
 2. You need to save the Todoist API Token in the repository secrets. You can find that in the Settings of your Repository. Be sure to save those as the following.
    - `TODOIST_API_KEY = <your todoist API token>`
+   - `TODOIST_LENGTH = <number of tasks you want to fetch>`
 3. You need to update the README file(README.md) with 2 comments. You can refer [here](#update-your-readme) for updating it.
 
 ## Update your README
@@ -21,13 +22,13 @@
 Add a comment to your `README.md` like this:
 
 ```markdown
-# Todoist Stats
+# Todoist Tasks
 
 <!-- TODO-IST:START -->
 <!-- TODO-IST:END -->
 ```
 
-These lines will be our entry-points for the todoist stats.
+These lines will be our entry-points for the todoist tasks.
 
 ## New to Todoist
 
@@ -54,22 +55,24 @@ on:
 
 jobs:
   update-readme:
-    name: Update todoist stats
+    name: Update todoist tasks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: abhisheknaiidu/todoist-readme@master
+      - uses: rxcod9/todoist-readme@master
         with:
           TODOIST_API_KEY: ${{ secrets.TODOIST_API_KEY }}
+          TODOIST_LENGTH: ${{ secrets.TODOIST_LENGTH }}
           PREMIUM: ""
 ```
 
 3. Go to your repo secrets by hitting `Settings => Secrets` tab in your profile repo. You can also enter the url https://github.com/USERNAME/USERNAME/settings/secrets . Please replace the `USERNAME` with your own username.
 4. Create a new `Secret`. `Name`: `TODOIST_API_KEY`, `Value`: Paste the Todoist API Token here. If you don't know what is the token, please go to [here](https://beta.todoist.com/prefs/integrations) to find your API Key there.
-5. Add a comment to your `README.md` like this:
+5. Create a new `Secret`. `Name`: `TODOIST_LENGTH`, `Value`: Paste the number of tasks you want to fetch.
+6. Add a comment to your `README.md` like this:
 
 ```markdown
-# Todoist Stats
+# Todoist Tasks
 
 <!-- TODO-IST:START -->
 <!-- TODO-IST:END -->
@@ -96,13 +99,14 @@ on:
 
 jobs:
   update-readme:
-    name: Update todoist stats
+    name: Update todoist tasks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: abhisheknaiidu/todoist-readme@master
+      - uses: rxcod9/todoist-readme@master
         with:
           TODOIST_API_KEY: ${{ secrets.TODOIST_API_KEY }}
+          TODOIST_LENGTH: ${{ secrets.TODOIST_LENGTH }}
           PREMIUM: true
 ```
 
@@ -113,6 +117,8 @@ jobs:
 [![CC0](https://licensebuttons.net/p/zero/1.0/88x31.png)](https://creativecommons.org/publicdomain/zero/1.0/)
 
 To the extent possible under law, [Abhishek Naidu](https://abhisheknaidu.tech/) has waived all copyright and related or neighboring rights to this work.
+
+_Inspired by [abhisheknaidu/todoist-readme](https://abhisheknaidu.tech/)_
 
 _Inspired by [yg/todoist-box](https://github.com/yg/todoist-box)_
 

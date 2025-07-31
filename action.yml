@@ -1,11 +1,15 @@
-name: 'Todoist Readme'
-author: Abhishek Naidu
-description: '🚧 Updates README with your Todoist stats'
+name: 'Todoist Readme Tasks List'
+author: Ramakant Gangwar
+description: '🚧 Updates README with your Todoist tasks'
 
 inputs:
   TODOIST_API_KEY:
     description: 'Your Todoist API Key'
     required: true
+
+  TODOIST_LENGTH:
+    description: 'Your Todoist Tasks length you want to fetch'
+    required: false
 
   USERNAME:
     description: 'Your GitHub username'
